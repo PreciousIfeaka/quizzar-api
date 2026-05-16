@@ -1,4 +1,4 @@
-package com.quizzar.quizzar_api;
+package com.quizzar;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
