@@ -1,1 +1,1 @@
-﻿package com.quizzar.analytics.dto; public class ScoreDistribution {}
+package com.quizzar.analytics.dto; public class ScoreDistribution {}

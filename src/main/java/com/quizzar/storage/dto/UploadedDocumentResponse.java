@@ -1,1 +1,1 @@
-﻿package com.quizzar.storage.dto; public class UploadedDocumentResponse {}
+package com.quizzar.storage.dto; public class UploadedDocumentResponse {}

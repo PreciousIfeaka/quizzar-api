@@ -1,9 +1,16 @@
 package com.quizzar;
 
+import com.quizzar.storage.config.S3Properties;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.cache.annotation.EnableCaching;
+import org.springframework.retry.annotation.EnableRetry;
 
 @SpringBootApplication
+@EnableRetry
+@EnableCaching
+@EnableConfigurationProperties(S3Properties.class)
 public class QuizzarApiApplication {
 
 	public static void main(String[] args) {
