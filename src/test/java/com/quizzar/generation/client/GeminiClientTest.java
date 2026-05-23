@@ -1,6 +1,5 @@
 package com.quizzar.generation.client;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.quizzar.common.exception.AiGenerationException;
 import com.quizzar.generation.config.GeminiProperties;
 import okhttp3.mockwebserver.MockResponse;
@@ -39,7 +38,7 @@ class GeminiClientTest {
             .baseUrl(props.getBaseUrl())
             .build();
 
-        geminiClient = new GeminiClient(webClient, props, new ObjectMapper());
+        geminiClient = new GeminiClient(webClient, props);
     }
 
     @AfterEach

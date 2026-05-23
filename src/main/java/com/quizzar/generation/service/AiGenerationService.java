@@ -1,7 +1,5 @@
 package com.quizzar.generation.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.quizzar.common.exception.AiGenerationException;
 import com.quizzar.generation.client.GeminiClient;
@@ -9,7 +7,6 @@ import com.quizzar.generation.client.dto.AiQuizGenerationResult;
 import com.quizzar.generation.client.dto.AnswerGradingDto;
 import com.quizzar.generation.client.dto.GeminiShortAnswerResponse;
 import com.quizzar.generation.config.GeminiProperties;
-import com.quizzar.session.dto.ShortAnswerSubmission;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.retry.annotation.Backoff;
@@ -35,51 +32,51 @@ public class AiGenerationService {
     // SYSTEM PROMPT — injected on every generateContent call as systemInstruction
     // —————————————————————————————————————————————————————————————————————————
     private static final String GENERATION_SYSTEM_PROMPT = """
-        You are an expert educational quiz designer. Your ONLY output must be a single valid JSON object.
-        Do not include any text, explanation, or markdown formatting before or after the JSON.
-        Do not wrap the JSON in code blocks. Output raw JSON only.
+            You are an expert educational quiz designer. Your ONLY output must be a single valid JSON object.
+            Do not include any text, explanation, or markdown formatting before or after the JSON.
+            Do not wrap the JSON in code blocks. Output raw JSON only.
 
-        The JSON must match this exact schema:
-        {
-          "questions": [
+            The JSON must match this exact schema:
             {
-              "questionText": "string",
-              "questionType": "MCQ | TRUE_FALSE | SHORT_ANSWER",
-              "orderIndex": number (starts at 1),
-              "points": number (default 1),
-              "options": [
-                { "label": "A|B|C|D|True|False", "text": "string", "isCorrect": boolean }
-              ] or null,
-              "acceptedAnswers": ["string"] or null
+              "questions": [
+                {
+                  "questionText": "string",
+                  "questionType": "MCQ | TRUE_FALSE | SHORT_ANSWER",
+                  "orderIndex": number (starts at 1),
+                  "points": number (default 1),
+                  "options": [
+                    { "label": "A|B|C|D|True|False", "text": "string", "isCorrect": boolean }
+                  ] or null,
+                  "acceptedAnswers": ["string"] or null
+                }
+              ],
+              "aiSuggestedTimingMode": "NONE | PER_QUESTION | OVERALL",
+              "aiSuggestedTimeSeconds": number,
+              "aiTimingReasoning": "string"
             }
-          ],
-          "aiSuggestedTimingMode": "NONE | PER_QUESTION | OVERALL",
-          "aiSuggestedTimeSeconds": number,
-          "aiTimingReasoning": "string"
-        }
 
-        Hard rules:
-        - "options" is non-null ONLY for MCQ and TRUE_FALSE. It is null for SHORT_ANSWER.
-        - "acceptedAnswers" is non-null ONLY for SHORT_ANSWER. It is null for MCQ and TRUE_FALSE.
-        - MCQ must have EXACTLY 4 options. Exactly ONE must have isCorrect = true.
-        - TRUE_FALSE must have EXACTLY 2 options labelled "True" and "False". Exactly ONE isCorrect = true.
-        - SHORT_ANSWER acceptedAnswers must contain at least 1 accepted phrase or keyword.
-        - orderIndex starts at 1 and increments sequentially.
-        - aiSuggestedTimeSeconds is per-question seconds if mode is PER_QUESTION, or total quiz seconds if OVERALL.
-        - If the content is simple enough to not need timing, use NONE and set aiSuggestedTimeSeconds to 0.
-        - Output must be valid, parseable JSON. Do not truncate.
-        """;
+            Hard rules:
+            - "options" is non-null ONLY for MCQ and TRUE_FALSE. It is null for SHORT_ANSWER.
+            - "acceptedAnswers" is non-null ONLY for SHORT_ANSWER. It is null for MCQ and TRUE_FALSE.
+            - MCQ must have EXACTLY 4 options. Exactly ONE must have isCorrect = true.
+            - TRUE_FALSE must have EXACTLY 2 options labelled "True" and "False". Exactly ONE isCorrect = true.
+            - SHORT_ANSWER acceptedAnswers must contain at least 1 accepted phrase or keyword.
+            - orderIndex starts at 1 and increments sequentially.
+            - aiSuggestedTimeSeconds is per-question seconds if mode is PER_QUESTION, or total quiz seconds if OVERALL.
+            - If the content is simple enough to not need timing, use NONE and set aiSuggestedTimeSeconds to 0.
+            - Output must be valid, parseable JSON. Do not truncate.
+            """;
 
     private static final String GRADING_SYSTEM_PROMPT = """
-        You are a strict but fair quiz grader. You will be given a question, a student's answer,
-        and a list of accepted answers or keywords. Determine if the student's answer is semantically
-        correct or meaningfully equivalent to any accepted answer.
+            You are a strict but fair quiz grader. You will be given a question, a student's answer,
+            and a list of accepted answers or keywords. Determine if the student's answer is semantically
+            correct or meaningfully equivalent to any accepted answer.
 
-        Reply with ONLY the single word: true
-        Or ONLY the single word: false
+            Reply with ONLY the single word: true
+            Or ONLY the single word: false
 
-        No punctuation. No explanation. No other output.
-        """;
+            No punctuation. No explanation. No other output.
+            """;
 
     private static final String MULTIPLE_GRADING_SYSTEM_PROMPT = """
             You are a strict but fair quiz grader. You will be given a list of questions, the student's answers,
@@ -89,7 +86,7 @@ public class AiGenerationService {
             Do not wrap the JSON in code blocks. Output raw JSON only.
 
             The JSON must match this exact schema:
-            
+
             {
               "answers": [
                 {
@@ -98,7 +95,7 @@ public class AiGenerationService {
                 }
               ]
             }
-            
+
             - Output must be valid, parseable JSON. Do not truncate.""";
 
     // —————————————————————————————————————————————————————————————————————————
@@ -106,25 +103,23 @@ public class AiGenerationService {
     // —————————————————————————————————————————————————————————————————————————
 
     /**
-     * Sends a prompt to Gemini and parses the JSON response into AiQuizGenerationResult.
+     * Sends a prompt to Gemini and parses the JSON response into
+     * AiQuizGenerationResult.
      * Retried up to 3 times with exponential backoff on AiGenerationException.
      *
-     * @param userPrompt  Built by one of the three PromptBuilder classes
-     * @return            Parsed quiz generation result
+     * @param userPrompt Built by one of the three PromptBuilder classes
+     * @return Parsed quiz generation result
      */
-    @Retryable(
-        retryFor = {AiGenerationException.class},
-            backoff = @Backoff(delay = 2000, multiplier = 2.0, maxDelay = 10000)
-    )
+    @Retryable(retryFor = {
+            AiGenerationException.class }, backoff = @Backoff(delay = 2000, multiplier = 2.0, maxDelay = 10000))
     public AiQuizGenerationResult generateQuiz(String userPrompt) {
         log.info("Sending quiz generation prompt to Gemini");
 
         String rawJson = geminiClient.generate(
-            GENERATION_SYSTEM_PROMPT,
-            userPrompt,
-            geminiProperties.getGenerationTemperature(),
-            geminiProperties.getMaxOutputTokens()
-        );
+                GENERATION_SYSTEM_PROMPT,
+                userPrompt,
+                geminiProperties.getGenerationTemperature(),
+                geminiProperties.getMaxOutputTokens());
 
         return parseGenerationResponse(rawJson);
     }
@@ -133,7 +128,7 @@ public class AiGenerationService {
     public AiQuizGenerationResult recoverGeneration(AiGenerationException e, String userPrompt) {
         log.error("All Gemini quiz generation retries exhausted. Last error: {}", e.getMessage());
         throw new AiGenerationException(
-            "Quiz generation failed after multiple attempts. Please try again later.");
+                "Quiz generation failed after multiple attempts. Please try again later.");
     }
 
     // —————————————————————————————————————————————————————————————————————————
@@ -148,46 +143,42 @@ public class AiGenerationService {
      * @param questionText    The original question
      * @param studentAnswer   What the student typed
      * @param acceptedAnswers List of accepted answers/keywords from ShortAnswerKey
-     * @return                true if Gemini considers the answer correct
+     * @return true if Gemini considers the answer correct
      */
     public boolean gradeShortAnswer(String questionText, String studentAnswer,
-                                     List<String> acceptedAnswers) {
-        if (studentAnswer == null || studentAnswer.isBlank()) return false;
+            List<String> acceptedAnswers) {
+        if (studentAnswer == null || studentAnswer.isBlank())
+            return false;
 
         String userPrompt = String.format("""
-            Question: %s
-            Student's Answer: %s
-            Accepted Answers / Keywords: %s
-            """,
-            questionText,
-            studentAnswer.trim(),
-            String.join(", ", acceptedAnswers)
-        );
+                Question: %s
+                Student's Answer: %s
+                Accepted Answers / Keywords: %s
+                """,
+                questionText,
+                studentAnswer.trim(),
+                String.join(", ", acceptedAnswers));
 
         try {
             String result = geminiClient.generate(
-                GRADING_SYSTEM_PROMPT,
-                userPrompt,
-                geminiProperties.getGradingTemperature(),
-                geminiProperties.getGradingMaxOutputTokens()
-            );
+                    GRADING_SYSTEM_PROMPT,
+                    userPrompt,
+                    geminiProperties.getGradingTemperature(),
+                    geminiProperties.getGradingMaxOutputTokens());
             return "true".equalsIgnoreCase(result.trim());
         } catch (AiGenerationException e) {
             // Grading failure must not crash the submission — default to false
             log.warn("Short answer grading failed for question [{}], defaulting to false. Reason: {}",
-                questionText.length() > 60 ? questionText.substring(0, 60) + "..." : questionText,
-                e.getMessage());
+                    questionText.length() > 60 ? questionText.substring(0, 60) + "..." : questionText,
+                    e.getMessage());
             return false;
         }
     }
 
-    @Retryable(
-            retryFor = {AiGenerationException.class},
-            backoff = @Backoff(delay = 2000, multiplier = 2.0, maxDelay = 10000)
-    )
+    @Retryable(retryFor = {
+            AiGenerationException.class }, backoff = @Backoff(delay = 2000, multiplier = 2.0, maxDelay = 10000))
     public Map<UUID, Boolean> gradeMultipleShortAnswers(
-            String submissions
-    ) {
+            String submissions) {
         String userPrompt = String.format("""
                 Submission Answers: %s""",
                 submissions);
@@ -196,8 +187,7 @@ public class AiGenerationService {
                 MULTIPLE_GRADING_SYSTEM_PROMPT,
                 userPrompt,
                 geminiProperties.getGenerationTemperature(),
-                geminiProperties.getMaxOutputTokens()
-        );
+                geminiProperties.getMaxOutputTokens());
 
         return parseShortAnswersResponse(rawJson);
     }
@@ -209,7 +199,6 @@ public class AiGenerationService {
                 "Short answers response failed after multiple attempts. Please try again later.");
     }
 
-
     // —————————————————————————————————————————————————————————————————————————
     // PRIVATE HELPERS
     // —————————————————————————————————————————————————————————————————————————
@@ -218,9 +207,9 @@ public class AiGenerationService {
         try {
             // Defensively strip any accidental markdown fences Gemini may still add
             String cleaned = rawJson
-                .replaceAll("(?s)```json\\s*", "")
-                .replaceAll("(?s)```\\s*", "")
-                .trim();
+                    .replaceAll("(?s)```json\\s*", "")
+                    .replaceAll("(?s)```\\s*", "")
+                    .trim();
 
             AiQuizGenerationResult result = objectMapper.readValue(cleaned, AiQuizGenerationResult.class);
 
@@ -232,7 +221,7 @@ public class AiGenerationService {
         } catch (Exception e) {
             log.error("Failed to parse Gemini JSON response. Raw response length: {}", rawJson.length());
             throw new AiGenerationException(
-                "AI returned a response that could not be parsed. Please try again.");
+                    "AI returned a response that could not be parsed. Please try again.");
         }
     }
 
@@ -244,14 +233,12 @@ public class AiGenerationService {
 
             GeminiShortAnswerResponse gradingPayload = objectMapper.readValue(
                     cleaned,
-                    GeminiShortAnswerResponse.class
-            );
+                    GeminiShortAnswerResponse.class);
 
             return gradingPayload.answers().stream()
                     .collect(Collectors.toMap(
                             answer -> UUID.fromString(answer.submissionId()),
-                            AnswerGradingDto::isCorrect
-                    ));
+                            AnswerGradingDto::isCorrect));
         } catch (AiGenerationException e) {
             throw e;
         } catch (Exception e) {
@@ -267,7 +254,7 @@ public class AiGenerationService {
         }
         if (result.getQuestions() == null || result.getQuestions().isEmpty()) {
             throw new AiGenerationException(
-                "AI returned no questions. The input may be too short or unclear.");
+                    "AI returned no questions. The input may be too short or unclear.");
         }
         // Validate each question's structural integrity
         for (int i = 0; i < result.getQuestions().size(); i++) {
@@ -286,7 +273,8 @@ public class AiGenerationService {
                     if (q.getOptions() == null || q.getOptions().size() != 4) {
                         throw new AiGenerationException(ref + " (MCQ) must have exactly 4 options.");
                     }
-                    long correctCount = q.getOptions().stream().filter(AiQuizGenerationResult.AiOptionDto::isCorrect).count();
+                    long correctCount = q.getOptions().stream().filter(AiQuizGenerationResult.AiOptionDto::isCorrect)
+                            .count();
                     if (correctCount != 1L) {
                         throw new AiGenerationException(ref + " (MCQ) must have exactly 1 correct option.");
                     }
@@ -298,7 +286,7 @@ public class AiGenerationService {
                 }
                 case "SHORT_ANSWER" -> {
                     if (q.getAcceptedAnswers() == null || q.getAcceptedAnswers().isEmpty()) {
-                        throw new AiGenerationException(ref + " (SHORT_ANSWER) must have at least 1 accepted answer.");      
+                        throw new AiGenerationException(ref + " (SHORT_ANSWER) must have at least 1 accepted answer.");
                     }
                 }
                 default -> throw new AiGenerationException(ref + " has unrecognised type: " + q.getQuestionType());

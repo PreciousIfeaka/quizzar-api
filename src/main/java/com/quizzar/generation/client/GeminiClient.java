@@ -11,6 +11,7 @@ import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
+import reactor.core.publisher.Mono;
 
 import java.util.List;
 import java.util.Map;
@@ -47,14 +48,13 @@ public class GeminiClient {
                 .bodyValue(request)
                 .retrieve()
                 .onStatus(HttpStatus.TOO_MANY_REQUESTS::equals, clientResponse ->
-                    clientResponse.bodyToMono(String.class).map(body ->
-                        new AiGenerationException("Gemini rate limit exceeded. Please try again shortly.")))
+                    Mono.error(new AiGenerationException("Gemini rate limit exceeded. Please try again shortly.")))
                 .onStatus(HttpStatus.BAD_REQUEST::equals, clientResponse ->
-                    clientResponse.bodyToMono(String.class).map(body ->
-                        new AiGenerationException("Gemini rejected the request (400): " + sanitize(body))))
+                    clientResponse.bodyToMono(String.class).defaultIfEmpty("").flatMap(body ->
+                        Mono.error(new AiGenerationException("Gemini rejected the request (400): " + sanitize(body)))))
                 .onStatus(HttpStatusCode::is5xxServerError, clientResponse ->
-                    clientResponse.bodyToMono(String.class).map(body ->
-                        new AiGenerationException("Gemini server error (" + clientResponse.statusCode().value() + "): " + sanitize(body))))
+                    clientResponse.bodyToMono(String.class).defaultIfEmpty("").flatMap(body ->
+                        Mono.error(new AiGenerationException("Gemini server error (" + clientResponse.statusCode().value() + "): " + sanitize(body)))))
                 .bodyToMono(GeminiResponse.class)
                 .block(); // Blocking is intentional — our service layer is synchronous MVC
 

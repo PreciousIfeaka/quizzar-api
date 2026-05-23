@@ -88,6 +88,12 @@ public class GlobalExceptionHandler {
         return buildError(HttpStatus.FORBIDDEN, "FORBIDDEN", "Access denied", req);
     }
 
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ErrorResponse> handleIllegalArgument(IllegalArgumentException ex, HttpServletRequest req) {
+        log.error("Bad request: {}", ex.getMessage());
+        return buildError(HttpStatus.BAD_REQUEST, "BAD_REQUEST", ex.getMessage(), req);
+    }
+
     @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
     public ResponseEntity<ErrorResponse> handleUnsupportedMediaType(HttpMediaTypeNotSupportedException ex, HttpServletRequest req) {
         log.error("Unsupported media type exception {}", ex.getMessage(), ex);
