@@ -4,6 +4,9 @@ import com.quizzar.common.exception.QuizNotFoundException;
 import com.quizzar.common.exception.QuizOwnershipException;
 import com.quizzar.document.repository.UploadedDocumentRepository;
 import com.quizzar.quiz.entity.Quiz;
+import com.quizzar.quiz.entity.QuizMode;
+import com.quizzar.quiz.entity.TimingMode;
+import com.quizzar.quiz.dto.UpdateQuizRequest;
 import com.quizzar.quiz.repository.QuizRepository;
 import com.quizzar.quiz.service.QuizService;
 import com.quizzar.storage.service.S3StorageService;
@@ -80,5 +83,38 @@ public class QuizServiceTest {
         quizService.deleteQuiz(quizId, teacherSubject);
         
         verify(quizRepository).delete(quiz);
+    }
+
+    @Test
+    void updateQuiz_WhenQuizModeIsPerQuestionAndTimerIsPositive_SetsTimingModeToPerQuestion() {
+        when(quizRepository.findById(quizId)).thenReturn(Optional.of(quiz));
+        when(quizRepository.save(any(Quiz.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        UpdateQuizRequest request = new UpdateQuizRequest();
+        request.setQuizMode(QuizMode.PER_QUESTION);
+        request.setTimerValueSeconds(30);
+
+        var response = quizService.updateQuiz(quizId, request, teacherSubject);
+
+        assertNotNull(response);
+        assertEquals(QuizMode.PER_QUESTION, response.getQuizMode());
+        assertEquals(TimingMode.PER_QUESTION, response.getTimingMode());
+        assertEquals(30, response.getTimerValueSeconds());
+    }
+
+    @Test
+    void updateQuiz_WhenQuizModeIsPerQuestionAndTimerIsNonPositive_SetsTimingModeToNone() {
+        when(quizRepository.findById(quizId)).thenReturn(Optional.of(quiz));
+        when(quizRepository.save(any(Quiz.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        UpdateQuizRequest request = new UpdateQuizRequest();
+        request.setQuizMode(QuizMode.PER_QUESTION);
+        request.setTimerValueSeconds(0);
+
+        var response = quizService.updateQuiz(quizId, request, teacherSubject);
+
+        assertNotNull(response);
+        assertEquals(QuizMode.PER_QUESTION, response.getQuizMode());
+        assertEquals(TimingMode.NONE, response.getTimingMode());
     }
 }

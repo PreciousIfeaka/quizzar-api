@@ -40,6 +40,11 @@ public class Quiz {
     @Column(name = "timing_mode", length = 20, nullable = false)
     @Builder.Default
     private TimingMode timingMode = TimingMode.NONE;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "quiz_mode", length = 20, nullable = false)
+    @Builder.Default
+    private QuizMode quizMode = QuizMode.OVERALL;
     
     @Column(name = "timer_value_seconds") 
     private Integer timerValueSeconds;

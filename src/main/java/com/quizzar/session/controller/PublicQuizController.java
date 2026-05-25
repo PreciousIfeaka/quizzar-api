@@ -41,11 +41,25 @@ public class PublicQuizController {
         return ApiResponse.ok(sessionService.submitAnswers(quizCode, sessionId, request));
     }
 
+    @PostMapping("/{quizCode}/sessions/{sessionId}/submit-answer")
+    public ApiResponse<QuestionResultResponse> submitSingleAnswer(
+            @PathVariable String quizCode,
+            @PathVariable UUID sessionId,
+            @RequestBody SubmitAnswerRequest request) {
+        return ApiResponse.ok(sessionService.submitSingleAnswer(quizCode, sessionId, request));
+    }
+
+    @PostMapping("/{quizCode}/sessions/{sessionId}/complete")
+    public ApiResponse<QuizResultResponse> completeSession(
+            @PathVariable String quizCode,
+            @PathVariable UUID sessionId) {
+        return ApiResponse.ok(sessionService.completeSession(quizCode, sessionId));
+    }
+
     @GetMapping("/{quizCode}/sessions/{sessionId}/results")
     public ApiResponse<QuizResultResponse> getSessionResults(
             @PathVariable String quizCode,
             @PathVariable UUID sessionId) {
-        // We could also validate quizCode matches the session, but getSessionResults already finds the session
         return ApiResponse.ok(sessionService.getSessionResults(sessionId, null));
     }
 

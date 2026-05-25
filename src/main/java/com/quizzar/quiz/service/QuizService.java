@@ -8,6 +8,8 @@ import com.quizzar.document.entity.UploadedDocument;
 import com.quizzar.document.repository.UploadedDocumentRepository;
 import com.quizzar.quiz.dto.*;
 import com.quizzar.quiz.entity.Quiz;
+import com.quizzar.quiz.entity.QuizMode;
+import com.quizzar.quiz.entity.TimingMode;
 import com.quizzar.quiz.repository.QuizRepository;
 import com.quizzar.quiz.util.QuizMapper;
 import com.quizzar.storage.service.S3StorageService;
@@ -35,26 +37,23 @@ public class QuizService {
     private final QuizRepository quizRepository;
     private final UploadedDocumentRepository uploadedDocumentRepository;
     private final S3StorageService s3StorageService;
-    
-    @Value("${quizzar.base-url}") 
+
+    @Value("${quizzar.base-url}")
     private String baseUrl;
 
     @Transactional(readOnly = true)
-    @Cacheable(
-            value = CacheConfig.QUIZ_LIST,
-            key = "#keycloakSubject + '-' + #pageable.pageNumber + '-' + #pageable.pageSize + '-' + #pageable.sort.toString()"
-    )
+    @Cacheable(value = CacheConfig.QUIZ_LIST, key = "#keycloakSubject + '-' + #pageable.pageNumber + '-' + #pageable.pageSize + '-' + #pageable.sort.toString()")
     public PageResponse<QuizSummaryResponse> getAllQuizzes(String keycloakSubject, Pageable pageable) {
         Page<QuizSummaryResponse> quizzes = quizRepository.findAllByTeacherKeycloakSubject(keycloakSubject, pageable)
-            .map(quiz -> QuizSummaryResponse.builder()
-                .id(quiz.getId())
-                .title(quiz.getTitle())
-                .description(quiz.getDescription())
-                .quizCode(quiz.getQuizCode())
-                    .timingMode(quiz.getTimingMode())
-                .questionCount(quiz.getQuestions().size())
-                .createdAt(quiz.getCreatedAt())
-                .build());
+                .map(quiz -> QuizSummaryResponse.builder()
+                        .id(quiz.getId())
+                        .title(quiz.getTitle())
+                        .description(quiz.getDescription())
+                        .quizCode(quiz.getQuizCode())
+                        .timingMode(quiz.getTimingMode())
+                        .questionCount(quiz.getQuestions().size())
+                        .createdAt(quiz.getCreatedAt())
+                        .build());
 
         return PageResponse.<QuizSummaryResponse>builder()
                 .content(quizzes.getContent())
@@ -82,17 +81,17 @@ public class QuizService {
     })
     public void deleteQuiz(UUID quizId, String keycloakSubject) {
         Quiz quiz = this.findQuizWithOwnershipCheck(quizId, keycloakSubject);
-        
+
         List<String> s3Keys = uploadedDocumentRepository.findAllByQuizId(quizId)
-            .stream().map(UploadedDocument::getS3Key).toList();
-        
+                .stream().map(UploadedDocument::getS3Key).toList();
+
         if (!s3Keys.isEmpty()) {
             s3StorageService.deleteFiles(s3Keys);
         }
 
         quiz.getSessions().clear();
         quizRepository.saveAndFlush(quiz);
-        
+
         quizRepository.delete(quiz);
         log.info("Deleted quiz {} and {} S3 documents", quizId, s3Keys.size());
     }
@@ -106,12 +105,26 @@ public class QuizService {
     })
     public QuizResponse updateQuiz(UUID quizId, UpdateQuizRequest request, String keycloakSubject) {
         Quiz quiz = this.findQuizWithOwnershipCheck(quizId, keycloakSubject);
-        
-        if (request.getTitle() != null) quiz.setTitle(request.getTitle());
-        if (request.getDescription() != null) quiz.setDescription(request.getDescription());
-        if (request.getTimingMode() != null) quiz.setTimingMode(request.getTimingMode());
-        if (request.getTimerValueSeconds() != null) quiz.setTimerValueSeconds(request.getTimerValueSeconds());
-        
+
+        if (request.getTitle() != null)
+            quiz.setTitle(request.getTitle());
+        if (request.getDescription() != null)
+            quiz.setDescription(request.getDescription());
+        if (request.getQuizMode() != null)
+            quiz.setQuizMode(request.getQuizMode());
+        if (request.getTimingMode() != null)
+            quiz.setTimingMode(request.getTimingMode());
+        if (request.getTimerValueSeconds() != null)
+            quiz.setTimerValueSeconds(request.getTimerValueSeconds());
+
+        if (quiz.getQuizMode() == QuizMode.PER_QUESTION) {
+            if (quiz.getTimerValueSeconds() != null && quiz.getTimerValueSeconds() > 0) {
+                quiz.setTimingMode(TimingMode.PER_QUESTION);
+            } else {
+                quiz.setTimingMode(TimingMode.NONE);
+            }
+        }
+
         return QuizMapper.toDetailResponse(quizRepository.save(quiz));
     }
 
@@ -121,7 +134,7 @@ public class QuizService {
         return new QuizLinkResponse(quiz.getQuizCode(), baseUrl + "/public/quiz/" + quiz.getQuizCode());
     }
 
-    @CacheEvict(value = {CacheConfig.QUIZ_DETAIL, CacheConfig.PUBLIC_QUIZ}, key = "#quizId")
+    @CacheEvict(value = { CacheConfig.QUIZ_DETAIL, CacheConfig.PUBLIC_QUIZ }, key = "#quizId")
     public QuizLinkResponse regenerateQuizCode(UUID quizId, String keycloakSubject) {
         Quiz quiz = this.findQuizWithOwnershipCheck(quizId, keycloakSubject);
         quiz.setQuizCode(this.generateQuizCode());
@@ -131,7 +144,7 @@ public class QuizService {
 
     public Quiz findQuizWithOwnershipCheck(UUID quizId, String keycloakSubject) {
         Quiz quiz = quizRepository.findById(quizId)
-            .orElseThrow(() -> new QuizNotFoundException("Quiz not found: " + quizId));
+                .orElseThrow(() -> new QuizNotFoundException("Quiz not found: " + quizId));
         if (!quiz.getTeacher().getKeycloakSubject().equals(keycloakSubject)) {
             throw new QuizOwnershipException("You do not have permission to access this quiz");
         }
@@ -148,12 +161,12 @@ public class QuizService {
         } while (quizRepository.existsByQuizCode(code));
         return code;
     }
-    
+
     @Transactional(readOnly = true)
     @Cacheable(value = CacheConfig.PUBLIC_QUIZ, key = "#quizCode")
     public PublicQuizResponse getPublicQuiz(String quizCode) {
         Quiz quiz = quizRepository.findByQuizCode(quizCode)
-            .orElseThrow(() -> new QuizNotFoundException("Quiz not found"));
+                .orElseThrow(() -> new QuizNotFoundException("Quiz not found"));
         return QuizMapper.toPublicResponse(quiz);
     }
 }

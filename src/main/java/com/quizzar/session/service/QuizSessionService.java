@@ -64,7 +64,7 @@ public class QuizSessionService {
     @CacheEvict(value = CacheConfig.ANALYTICS, key = "#result.quizId")
     @Transactional
     public QuizResultResponse submitAnswers(String quizCode, UUID sessionId, SubmitAnswersRequest request) {
-        QuizSession session = sessionRepository.findById(sessionId)
+        QuizSession session = sessionRepository.findByIdForUpdate(sessionId)
                 .orElseThrow(() -> new SessionNotFoundException("Session not found: " + sessionId));
 
         if (session.isCompleted()) {
@@ -188,6 +188,119 @@ public class QuizSessionService {
             }
         }
         
+        return buildQuizResultResponse(session);
+    }
+
+    @Transactional
+    public QuestionResultResponse submitSingleAnswer(String quizCode, UUID sessionId, SubmitAnswerRequest request) {
+        QuizSession session = sessionRepository.findByIdForUpdate(sessionId)
+                .orElseThrow(() -> new SessionNotFoundException("Session not found: " + sessionId));
+
+        if (session.isCompleted()) {
+            throw new QuizAlreadyCompletedException("This quiz session has already been completed");
+        }
+
+        if (!session.getQuiz().getQuizCode().equals(quizCode)) {
+            throw new QuizOwnershipException("Session does not match this quiz");
+        }
+
+        Question question = questionRepository.findById(request.getQuestionId())
+                .orElseThrow(() -> new SessionNotFoundException("Question not found: " + request.getQuestionId()));
+
+        if (!question.getQuiz().getId().equals(session.getQuiz().getId())) {
+            throw new QuizOwnershipException("Question does not belong to this quiz");
+        }
+
+        // Check if the question has already been answered in this session
+        boolean alreadyAnswered = session.getSessionAnswers().stream()
+                .anyMatch(sa -> sa.getQuestion().getId().equals(request.getQuestionId()));
+        if (alreadyAnswered) {
+            throw new IllegalStateException("Question has already been answered in this session");
+        }
+
+        AnswerSubmission answerSubmission = new AnswerSubmission();
+        answerSubmission.setQuestionId(request.getQuestionId());
+        answerSubmission.setSelectedOptionId(request.getSelectedOptionId());
+        answerSubmission.setAnswerText(request.getAnswerText());
+        answerSubmission.setTimeTakenSeconds(request.getTimeTakenSeconds());
+
+        boolean isCorrect = false;
+        if (question.getQuestionType().equals(QuestionType.SHORT_ANSWER)) {
+            // Check locally first (case-insensitive exact match)
+            isCorrect = evaluateAnswer(question, answerSubmission);
+            if (!isCorrect) {
+                // Gemini fallback
+                List<String> acceptedAnswers = question.getShortAnswerKeys().stream()
+                        .map(ShortAnswerKey::getAcceptedAnswer).toList();
+                isCorrect = aiGenerationService.gradeShortAnswer(
+                        question.getQuestionText(),
+                        request.getAnswerText(),
+                        acceptedAnswers
+                );
+            }
+        } else {
+            isCorrect = evaluateAnswer(question, answerSubmission);
+        }
+
+        AnswerOption selectedOption = null;
+        if (request.getSelectedOptionId() != null) {
+            selectedOption = answerOptionRepository.findById(request.getSelectedOptionId())
+                    .orElseThrow(() -> new SessionNotFoundException("Selected option not found: " + request.getSelectedOptionId()));
+        }
+
+        SessionAnswer sessionAnswer = SessionAnswer.builder()
+                .session(session)
+                .question(question)
+                .selectedOption(selectedOption)
+                .answerText(request.getAnswerText())
+                .isCorrect(isCorrect)
+                .timeTakenSeconds(request.getTimeTakenSeconds())
+                .build();
+
+        session.getSessionAnswers().add(sessionAnswer);
+        sessionRepository.save(session);
+
+        AnswerOption correctOption = question.getAnswerOptions().stream()
+                .filter(AnswerOption::isCorrect)
+                .findFirst().orElse(null);
+
+        return QuestionResultResponse.builder()
+                .isCorrect(isCorrect)
+                .pointsEarned(isCorrect ? question.getPoints() : 0)
+                .correctOptionLabel(correctOption != null ? correctOption.getOptionLabel() : null)
+                .correctOptionText(correctOption != null ? correctOption.getOptionText() : null)
+                .correctShortAnswerKeys(question.getShortAnswerKeys().stream().map(ShortAnswerKey::getAcceptedAnswer).toList())
+                .build();
+    }
+
+    @CacheEvict(value = CacheConfig.ANALYTICS, key = "#result.quizId")
+    @Transactional
+    public QuizResultResponse completeSession(String quizCode, UUID sessionId) {
+        QuizSession session = sessionRepository.findByIdForUpdate(sessionId)
+                .orElseThrow(() -> new SessionNotFoundException("Session not found: " + sessionId));
+
+        if (session.isCompleted()) {
+            throw new QuizAlreadyCompletedException("This quiz session has already been completed");
+        }
+
+        if (!session.getQuiz().getQuizCode().equals(quizCode)) {
+            throw new QuizOwnershipException("Session does not match this quiz");
+        }
+
+        List<Question> questions = questionRepository.findByQuizIdOrderByOrderIndex(session.getQuiz().getId());
+        int maxScore = questions.stream().mapToInt(Question::getPoints).sum();
+
+        int totalScore = session.getSessionAnswers().stream()
+                .filter(SessionAnswer::getIsCorrect)
+                .mapToInt(sa -> sa.getQuestion().getPoints())
+                .sum();
+
+        session.setCompleted(true);
+        session.setCompletedAt(OffsetDateTime.now());
+        session.setTotalScore(totalScore);
+        session.setMaxScore(maxScore);
+        sessionRepository.save(session);
+
         return buildQuizResultResponse(session);
     }
 

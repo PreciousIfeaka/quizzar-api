@@ -1,6 +1,7 @@
 package com.quizzar.generation.dto;
 
 import com.quizzar.question.entity.QuestionType;
+import com.quizzar.quiz.entity.QuizMode;
 import lombok.Data;
 import java.util.List;
 
@@ -16,4 +17,5 @@ public class GenerateFromSpecsRequest {
     private String syllabusText;
     private TimingPreference timingPreference;
     private Integer manualTimerSeconds;
+    private QuizMode quizMode = QuizMode.OVERALL;
 }
