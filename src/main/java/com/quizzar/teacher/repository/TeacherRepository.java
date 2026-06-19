@@ -9,5 +9,5 @@ import java.util.UUID;
 
 @Repository
 public interface TeacherRepository extends JpaRepository<Teacher, UUID> {
-    Optional<Teacher> findByKeycloakSubject(String keycloakSubject);
+    Optional<Teacher> findByEmail(String email);
 }

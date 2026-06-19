@@ -37,13 +37,13 @@ public class AnalyticsService {
     @Value("${quizzar.pass-threshold-percent}")
     private double passThreshold;
 
-    @Cacheable(value = CacheConfig.ANALYTICS, key = "'summary-' + #keycloakSubject")
-    public SummaryAnalyticsResponse getSummaryAnalytics(String keycloakSubject) {
-        long totalQuizzes = quizRepository.countByTeacherKeycloakSubject(keycloakSubject);
-        long totalAttempts = sessionRepository.countByQuizTeacherKeycloakSubject(keycloakSubject);
+    @Cacheable(value = CacheConfig.ANALYTICS, key = "'summary-' + #teacherId.toString()")
+    public SummaryAnalyticsResponse getSummaryAnalytics(UUID teacherId) {
+        long totalQuizzes = quizRepository.countByTeacherId(teacherId);
+        long totalAttempts = sessionRepository.countByQuizTeacherId(teacherId);
         
         List<QuizSession> completedSessions = sessionRepository
-            .findByQuizTeacherKeycloakSubjectAndIsCompletedTrue(keycloakSubject);
+            .findByQuizTeacherIdAndIsCompletedTrue(teacherId);
             
         double avgScore = completedSessions.isEmpty() ? 0 :
             completedSessions.stream()
@@ -51,8 +51,8 @@ public class AnalyticsService {
                 .average().orElse(0);
 
         OffsetDateTime oneMonthAgo = OffsetDateTime.now().minusMonths(1);
-        long activeQuizzes = sessionRepository.countDistinctQuizByQuizTeacherKeycloakSubjectAndStartedAtAfter(
-            keycloakSubject, oneMonthAgo);
+        long activeQuizzes = sessionRepository.countDistinctQuizByQuizTeacherIdAndStartedAtAfter(
+            teacherId, oneMonthAgo);
 
         return SummaryAnalyticsResponse.builder()
             .totalQuizzes(totalQuizzes)
@@ -63,11 +63,11 @@ public class AnalyticsService {
     }
 
     @Cacheable(value = CacheConfig.ANALYTICS, key = "#quizId")
-    public QuizAnalyticsResponse getAnalytics(UUID quizId, String keycloakSubject) {
+    public QuizAnalyticsResponse getAnalytics(UUID quizId, UUID teacherId) {
         Quiz quiz = quizRepository.findById(quizId)
             .orElseThrow(() -> new QuizNotFoundException("Quiz not found: " + quizId));
         
-        if (!quiz.getTeacher().getKeycloakSubject().equals(keycloakSubject)) {
+        if (!quiz.getTeacher().getId().equals(teacherId)) {
             throw new QuizOwnershipException("You do not own this quiz");
         }
         

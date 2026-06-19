@@ -27,47 +27,47 @@ public class QuizController {
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "createdAt") String sortBy,
             @RequestParam(defaultValue = "desc") String sortDir) {
-        String subject = securityUtils.getCurrentKeycloakSubject();
-
+        java.util.UUID teacherId = securityUtils.getCurrentTeacherId();
+ 
         Sort sort = sortDir.equalsIgnoreCase("asc")
                 ? Sort.by(sortBy).ascending()
                 : Sort.by(sortBy).descending();
-
+ 
         Pageable pageable = PageRequest.of(page, size, sort);
-
-        return ApiResponse.ok(quizService.getAllQuizzes(subject, pageable));
+ 
+        return ApiResponse.ok(quizService.getAllQuizzes(teacherId, pageable));
     }
 
     @GetMapping("/{quizId}")
     public ApiResponse<QuizResponse> getQuiz(@PathVariable UUID quizId) {
-        String subject = securityUtils.getCurrentKeycloakSubject();
-        return ApiResponse.ok(quizService.getQuizById(quizId, subject));
+        java.util.UUID teacherId = securityUtils.getCurrentTeacherId();
+        return ApiResponse.ok(quizService.getQuizById(quizId, teacherId));
     }
 
     @PatchMapping("/{quizId}")
     public ApiResponse<QuizResponse> updateQuiz(
             @PathVariable UUID quizId, 
             @RequestBody UpdateQuizRequest request) {
-        String subject = securityUtils.getCurrentKeycloakSubject();
-        return ApiResponse.ok(quizService.updateQuiz(quizId, request, subject));
+        java.util.UUID teacherId = securityUtils.getCurrentTeacherId();
+        return ApiResponse.ok(quizService.updateQuiz(quizId, request, teacherId));
     }
 
     @DeleteMapping("/{quizId}")
     public ApiResponse<Void> deleteQuiz(@PathVariable UUID quizId) {
-        String subject = securityUtils.getCurrentKeycloakSubject();
-        quizService.deleteQuiz(quizId, subject);
+        java.util.UUID teacherId = securityUtils.getCurrentTeacherId();
+        quizService.deleteQuiz(quizId, teacherId);
         return ApiResponse.ok(null, "Quiz deleted successfully");
     }
 
     @GetMapping("/{quizId}/link")
     public ApiResponse<QuizLinkResponse> getQuizLink(@PathVariable UUID quizId) {
-        String subject = securityUtils.getCurrentKeycloakSubject();
-        return ApiResponse.ok(quizService.getQuizLink(quizId, subject));
+        java.util.UUID teacherId = securityUtils.getCurrentTeacherId();
+        return ApiResponse.ok(quizService.getQuizLink(quizId, teacherId));
     }
 
     @PostMapping("/{quizId}/regenerate-code")
     public ApiResponse<QuizLinkResponse> regenerateCode(@PathVariable UUID quizId) {
-        String subject = securityUtils.getCurrentKeycloakSubject();
-        return ApiResponse.ok(quizService.regenerateQuizCode(quizId, subject));
+        java.util.UUID teacherId = securityUtils.getCurrentTeacherId();
+        return ApiResponse.ok(quizService.regenerateQuizCode(quizId, teacherId));
     }
 }

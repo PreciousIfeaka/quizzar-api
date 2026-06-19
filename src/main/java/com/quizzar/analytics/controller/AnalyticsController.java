@@ -26,19 +26,19 @@ public class AnalyticsController {
 
     @GetMapping("/summary")
     public ApiResponse<SummaryAnalyticsResponse> getSummaryAnalytics() {
-        String subject = securityUtils.getCurrentKeycloakSubject();
-        return ApiResponse.ok(analyticsService.getSummaryAnalytics(subject));
+        java.util.UUID teacherId = securityUtils.getCurrentTeacherId();
+        return ApiResponse.ok(analyticsService.getSummaryAnalytics(teacherId));
     }
 
     @GetMapping("/quizzes/{quizId}")
     public ApiResponse<QuizAnalyticsResponse> getQuizAnalytics(@PathVariable UUID quizId) {
-        String subject = securityUtils.getCurrentKeycloakSubject();
-        return ApiResponse.ok(analyticsService.getAnalytics(quizId, subject));
+        java.util.UUID teacherId = securityUtils.getCurrentTeacherId();
+        return ApiResponse.ok(analyticsService.getAnalytics(quizId, teacherId));
     }
 
     @GetMapping("/sessions/{sessionId}/results")
     public ApiResponse<QuizResultResponse> getSessionResults(@PathVariable UUID sessionId) {
-        String subject = securityUtils.getCurrentKeycloakSubject();
-        return ApiResponse.ok(sessionService.getSessionResults(sessionId, subject));
+        java.util.UUID teacherId = securityUtils.getCurrentTeacherId();
+        return ApiResponse.ok(sessionService.getSessionResults(sessionId, teacherId));
     }
 }

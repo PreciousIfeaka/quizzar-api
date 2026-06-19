@@ -1,14 +1,16 @@
 package com.quizzar.teacher.dto;
 
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
-import java.util.UUID;
+import lombok.NoArgsConstructor;
 
 @Data
 @Builder
-public class TeacherProfileResponse {
-    private UUID id;
-    private String email;
+@NoArgsConstructor
+@AllArgsConstructor
+public class UpdateProfileRequest {
     private String name;
+
     private String avatarUrl;
 }

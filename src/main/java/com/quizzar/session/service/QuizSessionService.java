@@ -110,7 +110,7 @@ public class QuizSessionService {
                             ShortAnswerSubmission.builder()
                                     .submissionId(question.getId())
                                     .acceptedAnswers(String.join(", ", acceptedAnswers))
-                                    .answerText(submission.getAnswerText())
+                                    .answerText(submission.getAnswerText().trim())
                                     .questionText(question.getQuestionText())
                                     .timeTakenSecs(submission.getTimeTakenSeconds())
                                     .build()
@@ -178,12 +178,12 @@ public class QuizSessionService {
         return buildQuizResultResponse(session);
     }
 
-    public QuizResultResponse getSessionResults(UUID sessionId, String teacherKeycloakSubject) {
+    public QuizResultResponse getSessionResults(UUID sessionId, UUID teacherId) {
         QuizSession session = sessionRepository.findById(sessionId)
             .orElseThrow(() -> new SessionNotFoundException("Session not found: " + sessionId));
 
-        if (teacherKeycloakSubject != null) {
-            if (!session.getQuiz().getTeacher().getKeycloakSubject().equals(teacherKeycloakSubject)) {
+        if (teacherId != null) {
+            if (!session.getQuiz().getTeacher().getId().equals(teacherId)) {
                 throw new QuizOwnershipException("You do not have permission to view these results");
             }
         }
@@ -359,7 +359,7 @@ public class QuizSessionService {
                 if (!StringUtils.hasText(submission.getAnswerText())) yield false;
                 List<String> acceptedAnswers = question.getShortAnswerKeys().stream()
                     .map(ShortAnswerKey::getAcceptedAnswer).toList();
-                yield acceptedAnswers.stream().anyMatch(submission.getAnswerText()::equalsIgnoreCase);
+                yield acceptedAnswers.stream().anyMatch(submission.getAnswerText().trim()::equalsIgnoreCase);
             }
         };
     }

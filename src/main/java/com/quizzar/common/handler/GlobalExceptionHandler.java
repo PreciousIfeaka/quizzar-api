@@ -88,6 +88,12 @@ public class GlobalExceptionHandler {
         return buildError(HttpStatus.FORBIDDEN, "FORBIDDEN", "Access denied", req);
     }
 
+    @ExceptionHandler(org.springframework.security.core.AuthenticationException.class)
+    public ResponseEntity<ErrorResponse> handleAuthException(org.springframework.security.core.AuthenticationException ex, HttpServletRequest req) {
+        log.error("Authentication failed: {}", ex.getMessage());
+        return buildError(HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", ex.getMessage(), req);
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ErrorResponse> handleIllegalArgument(IllegalArgumentException ex, HttpServletRequest req) {
         log.error("Bad request: {}", ex.getMessage());

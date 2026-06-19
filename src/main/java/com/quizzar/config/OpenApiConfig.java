@@ -31,6 +31,6 @@ public class OpenApiConfig {
                                 .type(SecurityScheme.Type.HTTP)
                                 .scheme("bearer")
                                 .bearerFormat("JWT")
-                                .description("Paste your Keycloak access token here (without the 'Bearer ' prefix)")));
+                                .description("Paste your JWT access token here (without the 'Bearer ' prefix)")));
     }
 }

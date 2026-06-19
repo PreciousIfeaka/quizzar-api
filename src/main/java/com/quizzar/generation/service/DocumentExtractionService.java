@@ -12,8 +12,8 @@ import org.apache.poi.xwpf.extractor.XWPFWordExtractor;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
-import org.springframework.web.multipart.MultipartFile;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 
@@ -21,23 +21,21 @@ import java.nio.charset.StandardCharsets;
 @Slf4j
 public class DocumentExtractionService {
 
-    public String extractText(MultipartFile file) {
-        String contentType = file.getContentType();
-        String originalFilename = StringUtils.hasText(file.getOriginalFilename()) 
-            ? file.getOriginalFilename().toLowerCase() : "";
+    public String extractText(byte[] fileBytes, String filename, String contentType) {
+        String originalFilename = StringUtils.hasText(filename) ? filename.toLowerCase() : "";
         
         try {
             if (contentType != null && contentType.equals("application/pdf") || originalFilename.endsWith(".pdf")) {
-                return extractFromPdf(file);
+                return extractFromPdf(fileBytes);
             } else if (contentType != null && contentType.equals("application/vnd.openxmlformats-officedocument.wordprocessingml.document") 
                        || originalFilename.endsWith(".docx")) {
-                return extractFromDocx(file);
+                return extractFromDocx(fileBytes);
             } else if (contentType != null && contentType.equals("application/msword") 
                        || originalFilename.endsWith(".doc")) {
-                return extractFromDoc(file);
+                return extractFromDoc(fileBytes);
             } else if (contentType != null && contentType.startsWith("text/") 
                        || originalFilename.endsWith(".txt")) {
-                return new String(file.getBytes(), StandardCharsets.UTF_8);
+                return new String(fileBytes, StandardCharsets.UTF_8);
             } else {
                 throw new InvalidFileTypeException("Unsupported file type: " + contentType);
             }
@@ -48,23 +46,23 @@ public class DocumentExtractionService {
         }
     }
 
-    private String extractFromPdf(MultipartFile file) throws IOException {
-        try (PDDocument doc = Loader.loadPDF(file.getBytes())) {
+    private String extractFromPdf(byte[] fileBytes) throws IOException {
+        try (PDDocument doc = Loader.loadPDF(fileBytes)) {
             PDFTextStripper stripper = new PDFTextStripper();
             return stripper.getText(doc);
         }
     }
 
-    private String extractFromDocx(MultipartFile file) throws IOException {
-        try (XWPFDocument doc = new XWPFDocument(file.getInputStream())) {
-            XWPFWordExtractor extractor = new XWPFWordExtractor(doc);
+    private String extractFromDocx(byte[] fileBytes) throws IOException {
+        try (XWPFDocument doc = new XWPFDocument(new ByteArrayInputStream(fileBytes));
+             XWPFWordExtractor extractor = new XWPFWordExtractor(doc)) {
             return extractor.getText();
         }
     }
 
-    private String extractFromDoc(MultipartFile file) throws IOException {
-        try (HWPFDocument doc = new HWPFDocument(file.getInputStream())) {
-            WordExtractor extractor = new WordExtractor(doc);
+    private String extractFromDoc(byte[] fileBytes) throws IOException {
+        try (HWPFDocument doc = new HWPFDocument(new ByteArrayInputStream(fileBytes));
+             WordExtractor extractor = new WordExtractor(doc)) {
             return extractor.getText();
         }
     }

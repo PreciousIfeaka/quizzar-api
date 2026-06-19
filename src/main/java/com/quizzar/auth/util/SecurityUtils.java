@@ -8,10 +8,10 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class SecurityUtils {
-    public String getCurrentKeycloakSubject() {
+    public java.util.UUID getCurrentTeacherId() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth instanceof JwtAuthenticationToken jwtAuth) {
-            return jwtAuth.getToken().getSubject();
+            return java.util.UUID.fromString(jwtAuth.getToken().getSubject());
         }
         throw new AccessDeniedException("Not authenticated");
     }

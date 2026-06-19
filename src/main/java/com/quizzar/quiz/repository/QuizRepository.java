@@ -13,6 +13,6 @@ import java.util.UUID;
 public interface QuizRepository extends JpaRepository<Quiz, UUID> {
     Optional<Quiz> findByQuizCode(String quizCode);
     boolean existsByQuizCode(String quizCode);
-    Page<Quiz> findAllByTeacherKeycloakSubject(String keycloakSubject, Pageable pageable);
-    long countByTeacherKeycloakSubject(String keycloakSubject);
+    Page<Quiz> findAllByTeacherId(UUID teacherId, Pageable pageable);
+    long countByTeacherId(UUID teacherId);
 }

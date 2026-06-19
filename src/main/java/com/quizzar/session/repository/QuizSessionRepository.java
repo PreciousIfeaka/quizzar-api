@@ -16,12 +16,11 @@ import java.util.UUID;
 public interface QuizSessionRepository extends JpaRepository<QuizSession, UUID> {
     List<QuizSession> findByQuizIdAndIsCompletedTrue(UUID quizId);
     int countByQuizId(UUID quizId);
+    long countByQuizTeacherId(UUID teacherId);
     
-    long countByQuizTeacherKeycloakSubject(String keycloakSubject);
-    
-    List<QuizSession> findByQuizTeacherKeycloakSubjectAndIsCompletedTrue(String keycloakSubject);
+    List<QuizSession> findByQuizTeacherIdAndIsCompletedTrue(UUID teacherId);
 
-    long countDistinctQuizByQuizTeacherKeycloakSubjectAndStartedAtAfter(String keycloakSubject, OffsetDateTime date);
+    long countDistinctQuizByQuizTeacherIdAndStartedAtAfter(UUID teacherId, OffsetDateTime date);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select s from QuizSession s where s.id = :id")

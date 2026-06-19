@@ -1,6 +1,5 @@
 package com.quizzar.generation.service;
 
-import com.quizzar.common.exception.InvalidFileTypeException;
 import com.quizzar.document.entity.UploadedDocument;
 import com.quizzar.document.repository.UploadedDocumentRepository;
 import com.quizzar.generation.client.dto.AiQuizGenerationResult;
@@ -29,9 +28,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
+import java.io.IOException;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @Slf4j
@@ -56,16 +57,21 @@ public class GenerationOrchestrationService {
 
     public GenerationResponse generateFromUpload(GenerateFromUploadRequest request,
             MultipartFile file,
-            String keycloakSubject) {
-        Teacher teacher = getTeacher(keycloakSubject);
-        validateFile(file);
+            UUID teacherId) {
+        Teacher teacher = getTeacher(teacherId);
 
         Quiz quiz = createQuizShell(request.getQuizTitle(), request.getQuizDescription(), request.getQuizMode(), teacher);
 
-        String s3Key = s3StorageService.uploadFile(file, teacher.getId(), quiz.getId());
-        saveDocumentRecord(quiz, file, s3Key);
+        String s3Key = s3StorageService.uploadFile(file, teacherId, quiz.getId());
+        saveDocumentRecord(quiz, s3Key, file.getOriginalFilename(), file.getContentType(), file.getSize());
 
-        String extractedText = extractionService.extractText(file);
+        byte[] fileBytes;
+        try {
+            fileBytes = file.getBytes();
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to read uploaded file bytes", e);
+        }
+        String extractedText = extractionService.extractText(fileBytes, file.getOriginalFilename(), file.getContentType());
 
         String prompt = extractionPromptBuilder.build(extractedText);
         AiQuizGenerationResult aiResult = aiGenerationService.generateQuiz(prompt);
@@ -78,8 +84,8 @@ public class GenerationOrchestrationService {
         return buildGenerationResponse(quiz, aiResult, baseUrl);
     }
 
-    public GenerationResponse generateFromPaste(GenerateFromPasteRequest request, String keycloakSubject) {
-        Teacher teacher = getTeacher(keycloakSubject);
+    public GenerationResponse generateFromPaste(GenerateFromPasteRequest request, UUID teacherId) {
+        Teacher teacher = getTeacher(teacherId);
         Quiz quiz = createQuizShell(request.getQuizTitle(), request.getQuizDescription(), request.getQuizMode(), teacher);
 
         String prompt = formattingPromptBuilder.build(request.getRawText());
@@ -94,16 +100,25 @@ public class GenerationOrchestrationService {
 
     public GenerationResponse generateFromSpecs(GenerateFromSpecsRequest request,
             MultipartFile syllabusFile,
-            String keycloakSubject) {
-        Teacher teacher = getTeacher(keycloakSubject);
+            UUID teacherId) {
+        Teacher teacher = getTeacher(teacherId);
         Quiz quiz = createQuizShell(request.getQuizTitle(), request.getQuizDescription(), request.getQuizMode(), teacher);
 
         String syllabusContext = "";
         if (syllabusFile != null && !syllabusFile.isEmpty()) {
-            validateFile(syllabusFile);
-            String s3Key = s3StorageService.uploadFile(syllabusFile, teacher.getId(), quiz.getId());
-            saveDocumentRecord(quiz, syllabusFile, s3Key);
-            syllabusContext = extractionService.extractText(syllabusFile);
+            String s3Key = s3StorageService.uploadFile(syllabusFile, teacherId, quiz.getId());
+            saveDocumentRecord(quiz, s3Key, syllabusFile.getOriginalFilename(), syllabusFile.getContentType(), syllabusFile.getSize());
+            byte[] fileBytes;
+            try {
+                fileBytes = syllabusFile.getBytes();
+            } catch (IOException e) {
+                throw new RuntimeException("Failed to read uploaded syllabus file bytes", e);
+            }
+            syllabusContext = extractionService.extractText(fileBytes, syllabusFile.getOriginalFilename(), syllabusFile.getContentType());
+        } else if (StringUtils.hasText(request.getSyllabusS3Key())) {
+            saveDocumentRecord(quiz, request.getSyllabusS3Key(), request.getSyllabusFilename(), request.getSyllabusContentType(), request.getSyllabusSizeBytes());
+            byte[] fileBytes = s3StorageService.downloadFile(request.getSyllabusS3Key());
+            syllabusContext = extractionService.extractText(fileBytes, request.getSyllabusFilename(), request.getSyllabusContentType());
         } else if (StringUtils.hasText(request.getSyllabusText())) {
             syllabusContext = request.getSyllabusText();
         }
@@ -192,25 +207,18 @@ public class GenerationOrchestrationService {
         return quizRepository.save(quiz);
     }
 
-    private Teacher getTeacher(String keycloakSubject) {
-        return teacherRepository.findByKeycloakSubject(keycloakSubject)
+    private Teacher getTeacher(UUID teacherId) {
+        return teacherRepository.findById(teacherId)
                 .orElseThrow(() -> new RuntimeException("Teacher not found"));
     }
 
-    private void validateFile(MultipartFile file) {
-        if (file.isEmpty()) {
-            throw new InvalidFileTypeException("File is empty");
-        }
-        // Basic validation - can be expanded
-    }
-
-    private void saveDocumentRecord(Quiz quiz, MultipartFile file, String s3Key) {
+    private void saveDocumentRecord(Quiz quiz, String s3Key, String filename, String contentType, Long sizeBytes) {
         UploadedDocument doc = UploadedDocument.builder()
                 .quiz(quiz)
                 .s3Key(s3Key)
-                .originalFilename(file.getOriginalFilename())
-                .contentType(file.getContentType())
-                .sizeBytes(file.getSize())
+                .originalFilename(filename)
+                .contentType(contentType)
+                .sizeBytes(sizeBytes)
                 .build();
         uploadedDocumentRepository.save(doc);
     }

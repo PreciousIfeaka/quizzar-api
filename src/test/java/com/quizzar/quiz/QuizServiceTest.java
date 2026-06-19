@@ -38,14 +38,14 @@ public class QuizServiceTest {
     private QuizService quizService;
 
     private UUID quizId;
-    private String teacherSubject;
+    private UUID teacherId;
     private Quiz quiz;
 
     @BeforeEach
     void setUp() {
         quizId = UUID.randomUUID();
-        teacherSubject = "teacher-123";
-        Teacher teacher = Teacher.builder().keycloakSubject(teacherSubject).build();
+        teacherId = UUID.randomUUID();
+        Teacher teacher = Teacher.builder().id(teacherId).build();
         quiz = Quiz.builder().id(quizId).teacher(teacher).build();
     }
 
@@ -53,7 +53,7 @@ public class QuizServiceTest {
     void getQuizById_WhenExistsAndOwner_ReturnsQuiz() {
         when(quizRepository.findById(quizId)).thenReturn(Optional.of(quiz));
         
-        var response = quizService.getQuizById(quizId, teacherSubject);
+        var response = quizService.getQuizById(quizId, teacherId);
         
         assertNotNull(response);
         assertEquals(quizId, response.getId());
@@ -64,7 +64,7 @@ public class QuizServiceTest {
         when(quizRepository.findById(quizId)).thenReturn(Optional.of(quiz));
         
         assertThrows(QuizOwnershipException.class, () -> 
-            quizService.getQuizById(quizId, "other-teacher"));
+            quizService.getQuizById(quizId, UUID.randomUUID()));
     }
 
     @Test
@@ -72,7 +72,7 @@ public class QuizServiceTest {
         when(quizRepository.findById(quizId)).thenReturn(Optional.empty());
         
         assertThrows(QuizNotFoundException.class, () -> 
-            quizService.getQuizById(quizId, teacherSubject));
+            quizService.getQuizById(quizId, teacherId));
     }
 
     @Test
@@ -80,7 +80,7 @@ public class QuizServiceTest {
         when(quizRepository.findById(quizId)).thenReturn(Optional.of(quiz));
         when(uploadedDocumentRepository.findAllByQuizId(quizId)).thenReturn(java.util.List.of());
         
-        quizService.deleteQuiz(quizId, teacherSubject);
+        quizService.deleteQuiz(quizId, teacherId);
         
         verify(quizRepository).delete(quiz);
     }
@@ -94,7 +94,7 @@ public class QuizServiceTest {
         request.setQuizMode(QuizMode.PER_QUESTION);
         request.setTimerValueSeconds(30);
 
-        var response = quizService.updateQuiz(quizId, request, teacherSubject);
+        var response = quizService.updateQuiz(quizId, request, teacherId);
 
         assertNotNull(response);
         assertEquals(QuizMode.PER_QUESTION, response.getQuizMode());
@@ -111,7 +111,7 @@ public class QuizServiceTest {
         request.setQuizMode(QuizMode.PER_QUESTION);
         request.setTimerValueSeconds(0);
 
-        var response = quizService.updateQuiz(quizId, request, teacherSubject);
+        var response = quizService.updateQuiz(quizId, request, teacherId);
 
         assertNotNull(response);
         assertEquals(QuizMode.PER_QUESTION, response.getQuizMode());

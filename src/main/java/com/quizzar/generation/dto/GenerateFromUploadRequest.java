@@ -10,4 +10,9 @@ public class GenerateFromUploadRequest {
     private TimingPreference timingPreference;
     private Integer manualTimerSeconds;
     private QuizMode quizMode = QuizMode.OVERALL;
+
+    private String s3Key;
+    private String filename;
+    private String contentType;
+    private Long sizeBytes;
 }

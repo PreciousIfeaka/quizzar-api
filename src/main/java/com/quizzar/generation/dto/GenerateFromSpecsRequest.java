@@ -18,4 +18,8 @@ public class GenerateFromSpecsRequest {
     private TimingPreference timingPreference;
     private Integer manualTimerSeconds;
     private QuizMode quizMode = QuizMode.OVERALL;
+    private String syllabusS3Key;
+    private String syllabusFilename;
+    private String syllabusContentType;
+    private Long syllabusSizeBytes;
 }

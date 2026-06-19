@@ -42,9 +42,9 @@ public class QuizService {
     private String baseUrl;
 
     @Transactional(readOnly = true)
-    @Cacheable(value = CacheConfig.QUIZ_LIST, key = "#keycloakSubject + '-' + #pageable.pageNumber + '-' + #pageable.pageSize + '-' + #pageable.sort.toString()")
-    public PageResponse<QuizSummaryResponse> getAllQuizzes(String keycloakSubject, Pageable pageable) {
-        Page<QuizSummaryResponse> quizzes = quizRepository.findAllByTeacherKeycloakSubject(keycloakSubject, pageable)
+    @Cacheable(value = CacheConfig.QUIZ_LIST, key = "#teacherId.toString() + '-' + #pageable.pageNumber + '-' + #pageable.pageSize + '-' + #pageable.sort.toString()")
+    public PageResponse<QuizSummaryResponse> getAllQuizzes(UUID teacherId, Pageable pageable) {
+        Page<QuizSummaryResponse> quizzes = quizRepository.findAllByTeacherId(teacherId, pageable)
                 .map(quiz -> QuizSummaryResponse.builder()
                         .id(quiz.getId())
                         .title(quiz.getTitle())
@@ -67,8 +67,8 @@ public class QuizService {
 
     @Cacheable(value = CacheConfig.QUIZ_DETAIL, key = "#quizId")
     @Transactional(readOnly = true)
-    public QuizResponse getQuizById(UUID quizId, String keycloakSubject) {
-        Quiz quiz = this.findQuizWithOwnershipCheck(quizId, keycloakSubject);
+    public QuizResponse getQuizById(UUID quizId, UUID teacherId) {
+        Quiz quiz = this.findQuizWithOwnershipCheck(quizId, teacherId);
         return QuizMapper.toDetailResponse(quiz);
     }
 
@@ -77,10 +77,10 @@ public class QuizService {
             @CacheEvict(value = CacheConfig.PUBLIC_QUIZ, key = "#quizId"),
             @CacheEvict(value = CacheConfig.QUIZ_LIST, allEntries = true),
             @CacheEvict(value = CacheConfig.ANALYTICS, key = "#quizId"),
-            @CacheEvict(value = CacheConfig.ANALYTICS, key = "'summary-' + #keycloakSubject")
+            @CacheEvict(value = CacheConfig.ANALYTICS, key = "'summary-' + #teacherId.toString()")
     })
-    public void deleteQuiz(UUID quizId, String keycloakSubject) {
-        Quiz quiz = this.findQuizWithOwnershipCheck(quizId, keycloakSubject);
+    public void deleteQuiz(UUID quizId, UUID teacherId) {
+        Quiz quiz = this.findQuizWithOwnershipCheck(quizId, teacherId);
 
         List<String> s3Keys = uploadedDocumentRepository.findAllByQuizId(quizId)
                 .stream().map(UploadedDocument::getS3Key).toList();
@@ -101,10 +101,10 @@ public class QuizService {
             @CacheEvict(value = CacheConfig.PUBLIC_QUIZ, key = "#quizId"),
             @CacheEvict(value = CacheConfig.QUIZ_LIST, allEntries = true),
             @CacheEvict(value = CacheConfig.ANALYTICS, key = "#quizId"),
-            @CacheEvict(value = CacheConfig.ANALYTICS, key = "'summary-' + #keycloakSubject")
+            @CacheEvict(value = CacheConfig.ANALYTICS, key = "'summary-' + #teacherId.toString()")
     })
-    public QuizResponse updateQuiz(UUID quizId, UpdateQuizRequest request, String keycloakSubject) {
-        Quiz quiz = this.findQuizWithOwnershipCheck(quizId, keycloakSubject);
+    public QuizResponse updateQuiz(UUID quizId, UpdateQuizRequest request, UUID teacherId) {
+        Quiz quiz = this.findQuizWithOwnershipCheck(quizId, teacherId);
 
         if (request.getTitle() != null)
             quiz.setTitle(request.getTitle());
@@ -129,23 +129,23 @@ public class QuizService {
     }
 
     @Transactional(readOnly = true)
-    public QuizLinkResponse getQuizLink(UUID quizId, String keycloakSubject) {
-        Quiz quiz = this.findQuizWithOwnershipCheck(quizId, keycloakSubject);
+    public QuizLinkResponse getQuizLink(UUID quizId, UUID teacherId) {
+        Quiz quiz = this.findQuizWithOwnershipCheck(quizId, teacherId);
         return new QuizLinkResponse(quiz.getQuizCode(), baseUrl + "/public/quiz/" + quiz.getQuizCode());
     }
 
     @CacheEvict(value = { CacheConfig.QUIZ_DETAIL, CacheConfig.PUBLIC_QUIZ }, key = "#quizId")
-    public QuizLinkResponse regenerateQuizCode(UUID quizId, String keycloakSubject) {
-        Quiz quiz = this.findQuizWithOwnershipCheck(quizId, keycloakSubject);
+    public QuizLinkResponse regenerateQuizCode(UUID quizId, UUID teacherId) {
+        Quiz quiz = this.findQuizWithOwnershipCheck(quizId, teacherId);
         quiz.setQuizCode(this.generateQuizCode());
         quiz = quizRepository.save(quiz);
         return new QuizLinkResponse(quiz.getQuizCode(), baseUrl + "/public/quiz/" + quiz.getQuizCode());
     }
 
-    public Quiz findQuizWithOwnershipCheck(UUID quizId, String keycloakSubject) {
+    public Quiz findQuizWithOwnershipCheck(UUID quizId, UUID teacherId) {
         Quiz quiz = quizRepository.findById(quizId)
                 .orElseThrow(() -> new QuizNotFoundException("Quiz not found: " + quizId));
-        if (!quiz.getTeacher().getKeycloakSubject().equals(keycloakSubject)) {
+        if (!quiz.getTeacher().getId().equals(teacherId)) {
             throw new QuizOwnershipException("You do not have permission to access this quiz");
         }
         return quiz;

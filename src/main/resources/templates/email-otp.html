@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="utf-8">
+  <style>
+    body {
+      font-family: 'Outfit', 'Inter', Helvetica, Arial, sans-serif;
+      background-color: #f4f5f7;
+      color: #1e293b;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 600px;
+      margin: 40px auto;
+      padding: 30px;
+      background-color: #ffffff;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+      border: 1px solid #e2e8f0;
+    }
+    .header {
+      text-align: center;
+      border-bottom: 2px solid #f1f5f9;
+      padding-bottom: 20px;
+      margin-bottom: 30px;
+    }
+    .header h1 {
+      color: #4f46e5;
+      margin: 0;
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+    .title {
+      font-size: 20px;
+      font-weight: 600;
+      color: #0f172a;
+      margin-bottom: 15px;
+    }
+    .otp-container {
+      text-align: center;
+      margin: 30px 0;
+      background: linear-gradient(135deg, #e0e7ff 0%, #e0e7ff 100%);
+      padding: 20px;
+      border-radius: 8px;
+    }
+    .otp-code {
+      font-family: monospace;
+      font-size: 36px;
+      font-weight: 700;
+      letter-spacing: 6px;
+      color: #4f46e5;
+      margin: 0;
+    }
+    .text {
+      font-size: 16px;
+      line-height: 1.6;
+      color: #334155;
+      margin-bottom: 20px;
+    }
+    .footer {
+      text-align: center;
+      font-size: 13px;
+      color: #94a3b8;
+      border-top: 1px solid #f1f5f9;
+      padding-top: 20px;
+      margin-top: 40px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Quizzar</h1>
+    </div>
+    <div class="title" th:text="${title}">Verification Code</div>
+    <div class="text">
+      Hello, <br>
+      <span th:if="${purpose == 'EMAIL_VERIFICATION'}">
+        Thank you for registering with Quizzar! Please use the following One-Time Password (OTP) to verify your email address. This code is valid for 15 minutes.
+      </span>
+      <span th:if="${purpose == 'PASSWORD_RESET'}">
+        We received a request to reset your password. Please use the following One-Time Password (OTP) to complete the action. This code is valid for 15 minutes.
+      </span>
+      <span th:if="${purpose != 'EMAIL_VERIFICATION' && purpose != 'PASSWORD_RESET'}">
+        You requested a code for <strong th:text="${purposeDisplay}">action</strong>. Please use the following One-Time Password (OTP) to complete the action. This code is valid for 15 minutes.
+      </span>
+    </div>
+    <div class="otp-container">
+      <div class="otp-code" th:text="${otp}">000000</div>
+    </div>
+    <div class="text">
+      If you did not request this code, you can safely ignore this email.
+    </div>
+    <div class="footer">
+      &copy; 2026 Quizzar AI. All rights reserved.
+    </div>
+  </div>
+</body>
+</html>
