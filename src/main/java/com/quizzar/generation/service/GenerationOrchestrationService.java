@@ -81,6 +81,10 @@ public class GenerationOrchestrationService {
         applyTiming(quiz, request.getTimingPreference(), request.getManualTimerSeconds(), aiResult);
         quizRepository.save(quiz);
 
+        try { s3StorageService.deleteFiles(List.of(s3Key)); } catch (Exception e) {
+            log.error("Failed to delete uploaded quiz file. Message: {}", e.getMessage());
+        }
+
         return buildGenerationResponse(quiz, aiResult, baseUrl);
     }
 
@@ -129,6 +133,12 @@ public class GenerationOrchestrationService {
         persistQuestions(quiz, aiResult.getQuestions());
         applyTiming(quiz, request.getTimingPreference(), request.getManualTimerSeconds(), aiResult);
         quizRepository.save(quiz);
+
+        if (request.getSyllabusS3Key() != null) {
+            try { s3StorageService.deleteFiles(List.of(request.getSyllabusS3Key())); } catch (Exception e) {
+                log.error("Failed to delete uploaded syllabus file. Message; {}", e.getMessage());
+            }
+        }
 
         return buildGenerationResponse(quiz, aiResult, baseUrl);
     }
