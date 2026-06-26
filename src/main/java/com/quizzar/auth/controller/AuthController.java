@@ -48,7 +48,7 @@ public class AuthController {
 
     @PostMapping("/google/signin")
     public ApiResponse<AuthResponse> googleSignin(@Valid @RequestBody GoogleTokenRequest request) {
-        log.info("Received google id token");
+        log.info("Received google access token");
         AuthResponse response = authService.googleSignin(request.getToken());
         return ApiResponse.ok(response);
     }

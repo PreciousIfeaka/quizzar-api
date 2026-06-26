@@ -135,8 +135,8 @@ public class AuthService {
     @Transactional
     public AuthResponse googleSignin(String accessToken) {
         GoogleUserInfo userInfo = googleAuthClient.getUserInfo(accessToken);
-        String email    = userInfo.getEmail();
-        String name     = userInfo.getName();
+        String email = userInfo.getEmail();
+        String name = userInfo.getName();
 
         Teacher teacher = teacherRepository.findByEmail(email)
                 .orElseGet(() -> createFromGoogle(email, name));
