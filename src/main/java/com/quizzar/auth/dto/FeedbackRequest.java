@@ -1,16 +1,16 @@
 package com.quizzar.auth.dto;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
-import org.hibernate.validator.constraints.URL;
 
 @Data
 public class FeedbackRequest {
+    @NotBlank(message = "text cannot be blank")
+    @NotNull(message = "text is required")
     private String text;
 
-    @URL(
-            protocol = "https",
-            host = "dailyfoods3bucket.s3.amazonaws.com",
-            message = "Image URL must originate from secure S3 bucket"
-    )
+    @NotBlank(message = "imageUrl cannot be blank")
+    @NotNull(message = "imageUrl is required")
     private String imageUrl;
 }
