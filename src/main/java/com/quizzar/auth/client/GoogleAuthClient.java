@@ -14,10 +14,12 @@ import reactor.core.publisher.Mono;
 
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class GoogleAuthClient {
-    @Qualifier("googleWebClient")
     private final WebClient webClient;
+
+    public GoogleAuthClient(@Qualifier("googleWebClient") WebClient webClient) {
+        this.webClient = webClient;
+    }
 
     public GoogleUserInfo getUserInfo(String accessToken) {
         log.info("Fetching Google userinfo for provided access token");

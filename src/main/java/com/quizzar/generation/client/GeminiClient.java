@@ -18,13 +18,17 @@ import java.util.Map;
 
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class GeminiClient {
-
-    @Qualifier("geminiWebClient")
     private final WebClient webClient;
-
     private final GeminiProperties geminiProperties;
+
+    public GeminiClient(
+            @Qualifier("geminiWebClient") WebClient webClient,
+            GeminiProperties geminiProperties
+    ) {
+        this.webClient = webClient;
+        this.geminiProperties = geminiProperties;
+    }
 
     /**
      * Calls the Gemini generateContent endpoint.
