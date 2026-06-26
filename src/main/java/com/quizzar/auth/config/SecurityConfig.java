@@ -63,9 +63,7 @@ public class SecurityConfig {
                                 "/api-docs/**",
                                 "/api-docs.yaml")
                         .permitAll()
-                        .anyRequest().authenticated())
-                .oauth2ResourceServer(oauth2 -> oauth2
-                        .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())));
+                        .anyRequest().authenticated());
         return http.build();
     }
 

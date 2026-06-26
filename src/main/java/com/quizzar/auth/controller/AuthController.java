@@ -46,6 +46,13 @@ public class AuthController {
         return ApiResponse.ok(response);
     }
 
+    @PostMapping("/google/signin")
+    public ApiResponse<AuthResponse> googleSignin(@Valid @RequestBody GoogleTokenRequest request) {
+        log.info("Received google id token");
+        AuthResponse response = authService.googleSignin(request.getToken());
+        return ApiResponse.ok(response);
+    }
+
     @PostMapping("/resend-otp")
     public ApiResponse<String> resendOtp(@Valid @RequestBody ResendOtpRequest request) {
         log.info("Received resend-otp request for email: {}", request.getEmail());

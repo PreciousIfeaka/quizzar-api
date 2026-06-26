@@ -27,6 +27,7 @@ public class AuthService {
     private final JwtService jwtService;
     private final PasswordEncoder passwordEncoder;
     private final SecureRandom secureRandom = new SecureRandom();
+    private final GoogleAuthService googleAuthService;
 
     @Transactional
     public String signup(SignUpRequest request) {
@@ -125,6 +126,54 @@ public class AuthService {
                 .tokenType("Bearer")
                 .profile(profile)
                 .build();
+    }
+
+    @Transactional
+    public AuthResponse googleSignin(String idToken) {
+        SocialSigninRequest request = googleAuthService.verifyToken(idToken);
+
+        if (request == null || !request.isEmailVerified()) {
+            throw new IllegalArgumentException("Email is not verified");
+        }
+
+        boolean userExists = teacherRepository.existsByEmail(request.getEmail());
+        if (userExists) {
+            Teacher teacher = teacherRepository.findByEmail(request.getEmail())
+                    .orElseThrow(() -> new IllegalArgumentException("User not found"));
+            String token = jwtService.generateToken(teacher.getId().toString(), request.getEmail());
+
+            TeacherProfileResponse profile = TeacherProfileResponse.builder()
+                    .id(teacher.getId())
+                    .email(teacher.getEmail())
+                    .name(teacher.getName())
+                    .build();
+
+            return AuthResponse.builder()
+                    .accessToken(token)
+                    .tokenType("Bearer")
+                    .profile(profile).build();
+        } else {
+            Teacher teacher = Teacher.builder()
+                    .name(request.getName())
+                    .email(request.getEmail())
+                    .emailVerified(true)
+                    .build();
+            teacherRepository.save(teacher);
+
+            String token = jwtService.generateToken(teacher.getId().toString(), teacher.getEmail());
+
+            TeacherProfileResponse profile = TeacherProfileResponse.builder()
+                    .id(teacher.getId())
+                    .email(teacher.getEmail())
+                    .name(teacher.getName())
+                    .build();
+
+            return AuthResponse.builder()
+                    .profile(profile)
+                    .accessToken(token)
+                    .tokenType("Bearer")
+                    .build();
+        }
     }
 
     @Transactional
