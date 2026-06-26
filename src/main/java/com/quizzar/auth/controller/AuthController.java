@@ -3,6 +3,7 @@ package com.quizzar.auth.controller;
 import com.quizzar.auth.dto.*;
 import com.quizzar.auth.service.AuthService;
 import com.quizzar.auth.service.EmailService;
+import com.quizzar.auth.util.SecurityUtils;
 import com.quizzar.common.dto.ApiResponse;
 import com.quizzar.teacher.dto.TeacherProfileResponse;
 import com.quizzar.teacher.service.TeacherService;
@@ -22,6 +23,7 @@ public class AuthController {
     private final AuthService authService;
     private final TeacherService teacherService;
     private final EmailService emailService;
+    private final SecurityUtils securityUtils;
 
     @PostMapping("/signup")
     public ApiResponse<String> signup(@Valid @RequestBody SignUpRequest request) {
@@ -61,7 +63,8 @@ public class AuthController {
     @PostMapping("/send-feedback")
     public ApiResponse<String> sendFeedBack(@Valid @RequestBody FeedbackRequest request) {
         log.info("Received app feeback request");
-        emailService.sendFeedbackEmail(request);
+
+        emailService.sendFeedbackEmail(request, securityUtils.getCurrentEmail());
         return ApiResponse.ok("Successfully sent feedback email");
     }
 

@@ -40,7 +40,7 @@ public class TeacherService {
     public TeacherProfileResponse getProfileWithPresignedUrl(String subject) {
         TeacherProfileResponse profile = getProfile(subject);
         String avatarUrl = profile.getAvatarUrl();
-        if (avatarUrl != null && !avatarUrl.startsWith("http://") && !avatarUrl.startsWith("https://")) {
+        if (avatarUrl != null && !avatarUrl.startsWith("https://")) {
             avatarUrl = s3StorageService.generatePresignedUrl(avatarUrl);
         }
         return TeacherProfileResponse.builder()

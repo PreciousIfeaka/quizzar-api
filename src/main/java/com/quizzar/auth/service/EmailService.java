@@ -2,6 +2,7 @@ package com.quizzar.auth.service;
 
 import com.quizzar.auth.dto.FeedbackRequest;
 import com.quizzar.auth.util.SecurityUtils;
+import com.quizzar.storage.service.S3StorageService;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,7 +24,7 @@ public class EmailService {
 
     private final JavaMailSender mailSender;
     private final TemplateEngine templateEngine;
-    private final SecurityUtils securityUtils;
+    private final S3StorageService s3StorageService;
 
     @Async
     public void sendOtpEmail(String to, String otp, String purpose) {
@@ -70,18 +71,15 @@ public class EmailService {
     }
 
     @Async
-    public void sendFeedbackEmail(FeedbackRequest request) {
+    public void sendFeedbackEmail(FeedbackRequest request, String user) {
         Context context = new Context();
         context.setVariable("text", request.getText());
+        context.setVariable("user", user != null ? user : "Anon user");
+        context.setVariable("user", "Anon user");
 
-        try {
-            context.setVariable("user", securityUtils.getCurrentEmail());
-        } catch (Exception e){
-            context.setVariable("user", "Anon user");
-            log.error("Failed to retrieve authenticated user, {}", e.getMessage());
+        if (request.getImageUrl() != null) {
+            context.setVariable("imageUrl", s3StorageService.generatePresignedUrl(request.getImageUrl()));
         }
-
-        if (request.getImageUrl() != null) context.setVariable("imageUrl", request.getImageUrl());
 
         try {
             String htmlContent = templateEngine.process("feedback-email", context);
