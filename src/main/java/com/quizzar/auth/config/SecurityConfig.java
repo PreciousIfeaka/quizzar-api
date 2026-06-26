@@ -54,6 +54,7 @@ public class SecurityConfig {
                                 "/api/v1/auth/verify-email",
                                 "/api/v1/auth/resend-otp",
                                 "/api/v1/auth/forgot-password",
+                                "/api/v1/auth/google/signin",
                                 "/api/v1/auth/reset-password")
                         .permitAll()
                         .requestMatchers("/actuator/health", "/actuator/info").permitAll()
