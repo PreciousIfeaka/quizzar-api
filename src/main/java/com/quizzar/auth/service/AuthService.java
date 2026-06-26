@@ -1,5 +1,6 @@
 package com.quizzar.auth.service;
 
+import com.quizzar.auth.client.GoogleAuthClient;
 import com.quizzar.auth.dto.*;
 import com.quizzar.auth.entity.OtpVerification;
 import com.quizzar.auth.repository.OtpVerificationRepository;
@@ -27,7 +28,7 @@ public class AuthService {
     private final JwtService jwtService;
     private final PasswordEncoder passwordEncoder;
     private final SecureRandom secureRandom = new SecureRandom();
-    private final GoogleAuthService googleAuthService;
+    private final GoogleAuthClient googleAuthClient;
 
     @Transactional
     public String signup(SignUpRequest request) {
@@ -43,17 +44,16 @@ public class AuthService {
             // If they registered but didn't verify, allow updating profile and password
             existing.setName(request.getName().trim());
             existing.setPasswordHash(passwordEncoder.encode(request.getPassword()));
-            teacher = teacherRepository.save(existing);
+            teacherRepository.save(existing);
             log.info("Updated unverified teacher credentials for: {}", email);
         } else {
-            // New user registration
             teacher = Teacher.builder()
                     .name(request.getName().trim())
                     .email(email)
                     .passwordHash(passwordEncoder.encode(request.getPassword()))
                     .emailVerified(false)
                     .build();
-            teacher = teacherRepository.save(teacher);
+            teacherRepository.save(teacher);
             log.info("Registered new unverified teacher: {}", email);
         }
 
@@ -105,6 +105,10 @@ public class AuthService {
         Teacher teacher = teacherRepository.findByEmail(email)
                 .orElseThrow(() -> new IllegalArgumentException("Invalid email or password"));
 
+        if (teacher.getPasswordHash() == null) {
+            throw new IllegalArgumentException("This is a social sign in account, sign in with google");
+        }
+
         if (!passwordEncoder.matches(request.getPassword(), teacher.getPasswordHash())) {
             throw new IllegalArgumentException("Invalid email or password");
         }
@@ -129,51 +133,34 @@ public class AuthService {
     }
 
     @Transactional
-    public AuthResponse googleSignin(String idToken) {
-        SocialSigninRequest request = googleAuthService.verifyToken(idToken);
+    public AuthResponse googleSignin(String accessToken) {
+        GoogleUserInfo userInfo = googleAuthClient.getUserInfo(accessToken);
+        String email    = userInfo.getEmail();
+        String name     = userInfo.getName();
 
-        if (request == null || !request.isEmailVerified()) {
-            throw new IllegalArgumentException("Email is not verified");
-        }
+        Teacher teacher = teacherRepository.findByEmail(email)
+                .orElseGet(() -> createFromGoogle(email, name));
+        String jwt = jwtService.generateToken(teacher.getId().toString(), teacher.getEmail());
 
-        boolean userExists = teacherRepository.existsByEmail(request.getEmail());
-        if (userExists) {
-            Teacher teacher = teacherRepository.findByEmail(request.getEmail())
-                    .orElseThrow(() -> new IllegalArgumentException("User not found"));
-            String token = jwtService.generateToken(teacher.getId().toString(), request.getEmail());
+        TeacherProfileResponse profile = TeacherProfileResponse.builder()
+                .id(teacher.getId())
+                .email(teacher.getEmail())
+                .name(teacher.getName())
+                .build();
 
-            TeacherProfileResponse profile = TeacherProfileResponse.builder()
-                    .id(teacher.getId())
-                    .email(teacher.getEmail())
-                    .name(teacher.getName())
-                    .build();
+        return AuthResponse.builder()
+                .profile(profile)
+                .accessToken(jwt)
+                .tokenType("Bearer")
+                .build();
+    }
 
-            return AuthResponse.builder()
-                    .accessToken(token)
-                    .tokenType("Bearer")
-                    .profile(profile).build();
-        } else {
-            Teacher teacher = Teacher.builder()
-                    .name(request.getName())
-                    .email(request.getEmail())
-                    .emailVerified(true)
-                    .build();
-            teacherRepository.save(teacher);
-
-            String token = jwtService.generateToken(teacher.getId().toString(), teacher.getEmail());
-
-            TeacherProfileResponse profile = TeacherProfileResponse.builder()
-                    .id(teacher.getId())
-                    .email(teacher.getEmail())
-                    .name(teacher.getName())
-                    .build();
-
-            return AuthResponse.builder()
-                    .profile(profile)
-                    .accessToken(token)
-                    .tokenType("Bearer")
-                    .build();
-        }
+    private Teacher createFromGoogle(String email, String name) {
+        Teacher teacher = new Teacher();
+        teacher.setEmail(email);
+        teacher.setName(name);
+        teacher.setEmailVerified(true);
+        return teacherRepository.save(teacher);
     }
 
     @Transactional
