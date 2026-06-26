@@ -106,7 +106,7 @@ public class GlobalExceptionHandler {
         return buildError(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "UNSUPPORTED_MEDIA_TYPE", "Unsupported media type", req);
     }
 
-    @ExceptionHandler(Exception.class)
+    @ExceptionHandler(UnauthorizedException.class)
     public ResponseEntity<ErrorResponse> handleUnauthorized(UnauthorizedException ex, HttpServletRequest req) {
         log.error("Unauthorized exception: {}", ex.getMessage());
         return buildError(HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", ex.getMessage(), req);
