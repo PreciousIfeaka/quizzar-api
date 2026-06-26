@@ -83,7 +83,6 @@ public class AuthService {
         otpVerificationRepository.deleteByEmail(email);
         log.info("Email verified successfully for teacher: {}", email);
 
-        // Generate token immediately to log user in
         String accessToken = jwtService.generateToken(teacher.getId().toString(), teacher.getEmail());
 
         TeacherProfileResponse profile = TeacherProfileResponse.builder()
@@ -197,10 +196,8 @@ public class AuthService {
     }
 
     private void sendNewOtp(String email, String purpose) {
-        // Purge any old OTPs for the email
         otpVerificationRepository.deleteByEmail(email);
 
-        // Generate 6-digit code
         String code = String.format("%06d", secureRandom.nextInt(1000000));
 
         OtpVerification otpVerification = OtpVerification.builder()

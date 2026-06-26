@@ -53,7 +53,7 @@ jobs:
             echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
             # Pull the new image
-            docker compose pull quizzar
+            docker compose pull quizzar --
 
             # Recreate the containers
             docker compose up -d

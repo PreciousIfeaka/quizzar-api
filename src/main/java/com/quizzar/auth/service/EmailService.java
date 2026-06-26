@@ -1,5 +1,7 @@
 package com.quizzar.auth.service;
 
+import com.quizzar.auth.dto.FeedbackRequest;
+import com.quizzar.auth.util.SecurityUtils;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,6 +23,7 @@ public class EmailService {
 
     private final JavaMailSender mailSender;
     private final TemplateEngine templateEngine;
+    private final SecurityUtils securityUtils;
 
     @Async
     public void sendOtpEmail(String to, String otp, String purpose) {
@@ -64,5 +67,37 @@ public class EmailService {
             log.error("Failed to send HTML email to {} due to: {}. Logging OTP code fallback: EMAIL={} OTP=[{}] PURPOSE={}", 
                     to, e.getMessage(), to, otp, purpose);
         }
+    }
+
+    @Async
+    public void sendFeedbackEmail(FeedbackRequest request) {
+        Context context = new Context();
+        context.setVariable("text", request.getText());
+
+        try {
+            context.setVariable("user", securityUtils.getCurrentEmail());
+        } catch (Exception e){
+            context.setVariable("user", "Anon user");
+            log.error("Failed to retrieve authenticated user, {}", e.getMessage());
+        }
+
+        if (request.getImageUrl() != null) context.setVariable("imageUrl", request.getImageUrl());
+
+        try {
+            String htmlContent = templateEngine.process("feedback-email", context);
+
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            helper.setFrom(mailFrom);
+            helper.setTo("preciousifeaka@gmail.com");
+            helper.setSubject("Quizzar - Feedback");
+            helper.setText(htmlContent);
+
+            mailSender.send(message);
+            log.info("Successfully sent app feedback message");
+        } catch (Exception e) {
+            log.error("Failed to send app feedback message, {}", e.getMessage());
+        }
+
     }
 }

@@ -2,6 +2,7 @@ package com.quizzar.auth.controller;
 
 import com.quizzar.auth.dto.*;
 import com.quizzar.auth.service.AuthService;
+import com.quizzar.auth.service.EmailService;
 import com.quizzar.common.dto.ApiResponse;
 import com.quizzar.teacher.dto.TeacherProfileResponse;
 import com.quizzar.teacher.service.TeacherService;
@@ -20,6 +21,7 @@ public class AuthController {
 
     private final AuthService authService;
     private final TeacherService teacherService;
+    private final EmailService emailService;
 
     @PostMapping("/signup")
     public ApiResponse<String> signup(@Valid @RequestBody SignUpRequest request) {
@@ -54,6 +56,13 @@ public class AuthController {
         log.info("Received forgot-password request for email: {}", request.getEmail());
         String responseMessage = authService.forgotPassword(request);
         return ApiResponse.ok(responseMessage);
+    }
+
+    @PostMapping("/send-feedback")
+    public ApiResponse<String> sendFeedBack(@Valid @RequestBody FeedbackRequest request) {
+        log.info("Received app feeback request");
+        emailService.sendFeedbackEmail(request);
+        return ApiResponse.ok("Successfully sent feedback email");
     }
 
     @PostMapping("/reset-password")
