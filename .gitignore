@@ -35,6 +35,5 @@ build/
 AGENT.md
 quizzar_prd_V1.0.txt
 .dockerignore
-Dockerfile
 docker-compose.yml
 .env
