@@ -3,8 +3,10 @@ package com.quizzar.auth.service;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.thymeleaf.TemplateEngine;
 import org.thymeleaf.context.Context;
@@ -14,9 +16,13 @@ import org.thymeleaf.context.Context;
 @RequiredArgsConstructor
 public class EmailService {
 
+    @Value("${quizzar.mail.from}")
+    private String mailFrom;
+
     private final JavaMailSender mailSender;
     private final TemplateEngine templateEngine;
 
+    @Async
     public void sendOtpEmail(String to, String otp, String purpose) {
         String purposeDisplay = purpose.replace("_", " ").toLowerCase();
         String title = purpose.replace("_", " ");
@@ -48,6 +54,7 @@ public class EmailService {
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            helper.setFrom(mailFrom);
             helper.setTo(to);
             helper.setSubject(subject);
             helper.setText(htmlContent, true);

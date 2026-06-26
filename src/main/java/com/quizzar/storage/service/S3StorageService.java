@@ -90,7 +90,6 @@ public class S3StorageService {
                     .bucket(properties.getS3().getBucketName())
                     .key(s3Key)
                     .contentType(contentType)
-                    .serverSideEncryption(ServerSideEncryption.AES256)
                     .build();
 
             PutObjectPresignRequest presignRequest = PutObjectPresignRequest.builder()

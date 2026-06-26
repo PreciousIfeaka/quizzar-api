@@ -1,0 +1,72 @@
+name: Quizzar API CD
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '.github/**'
+  pull_request:
+    branches:
+      - main
+    paths-ignore:
+      - '.github/**'
+
+jobs:
+  build-push-deploy:
+    name: Build, Push, and Deploy quizzar api
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GHCR_TOKEN }}
+
+      - name: Build and Push Docker Image
+        run: |
+          # Convert repository owner to lowercase
+          REPO_OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          IMAGE_ID=ghcr.io/$REPO_OWNER/quizzar:latest
+
+          echo "Building and Pushing to $IMAGE_ID"
+
+          docker build -t $IMAGE_ID -f Dockerfile .
+          docker push $IMAGE_ID
+
+      - name: SSH Deploy to Production
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.REMOTE_HOST }}
+          username: ${{ secrets.REMOTE_USERNAME }}
+          password: ${{ secrets.REMOTE_PASSWORD }}
+          script: |
+            cd ~/quizzar
+            echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+            # Pull the new image
+            docker compose pull quizzar
+
+            # Recreate the containers
+            docker compose up -d
+
+            # Clean up dangling images to save space
+            docker image prune -f
+
+      - name: Delete old image versions
+        uses: actions/delete-package-versions@v5
+        with:
+          owner: 'preciousifeaka'
+          package-name: 'quizzar'
+          package-type: 'container'
+          min-versions-to-keep: 1
+          delete-only-untagged-versions: 'true'
+          token: ${{ secrets.GHCR_TOKEN }}

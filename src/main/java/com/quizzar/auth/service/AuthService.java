@@ -213,8 +213,6 @@ public class AuthService {
         otpVerificationRepository.save(otpVerification);
         log.info("Generated new OTP code for: {}, purpose: {}", email, purpose);
 
-        // Asynchronously or synchronously send mail (we send synchronously here for
-        // simplicity)
         emailService.sendOtpEmail(email, code, purpose);
     }
 }

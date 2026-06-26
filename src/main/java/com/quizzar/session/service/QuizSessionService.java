@@ -27,11 +27,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import javax.swing.text.html.Option;
 import java.time.OffsetDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
 @Service
 @Slf4j
@@ -211,11 +209,21 @@ public class QuizSessionService {
             throw new QuizOwnershipException("Question does not belong to this quiz");
         }
 
-        // Check if the question has already been answered in this session
-        boolean alreadyAnswered = session.getSessionAnswers().stream()
-                .anyMatch(sa -> sa.getQuestion().getId().equals(request.getQuestionId()));
-        if (alreadyAnswered) {
-            throw new IllegalStateException("Question has already been answered in this session");
+        AnswerOption correctOption = question.getAnswerOptions().stream()
+                .filter(AnswerOption::isCorrect)
+                .findFirst().orElse(null);
+
+        Optional<SessionAnswer> questionAnswer = session.getSessionAnswers().stream()
+                .filter(sa -> sa.getQuestion().getId().equals(request.getQuestionId())).findFirst();
+
+        if (questionAnswer.isPresent()) {
+            return QuestionResultResponse.builder()
+                    .isCorrect(questionAnswer.get().getIsCorrect())
+                    .pointsEarned(questionAnswer.get().getIsCorrect() ? question.getPoints() : 0)
+                    .correctOptionLabel(correctOption != null ? correctOption.getOptionLabel() : null)
+                    .correctOptionText(correctOption != null ? correctOption.getOptionText() : null)
+                    .correctShortAnswerKeys(question.getShortAnswerKeys().stream().map(ShortAnswerKey::getAcceptedAnswer).toList())
+                    .build();
         }
 
         AnswerSubmission answerSubmission = new AnswerSubmission();
@@ -224,12 +232,9 @@ public class QuizSessionService {
         answerSubmission.setAnswerText(request.getAnswerText());
         answerSubmission.setTimeTakenSeconds(request.getTimeTakenSeconds());
 
-        boolean isCorrect = false;
+        boolean isCorrect = evaluateAnswer(question, answerSubmission);
         if (question.getQuestionType().equals(QuestionType.SHORT_ANSWER)) {
-            // Check locally first (case-insensitive exact match)
-            isCorrect = evaluateAnswer(question, answerSubmission);
             if (!isCorrect) {
-                // Gemini fallback
                 List<String> acceptedAnswers = question.getShortAnswerKeys().stream()
                         .map(ShortAnswerKey::getAcceptedAnswer).toList();
                 isCorrect = aiGenerationService.gradeShortAnswer(
@@ -259,10 +264,6 @@ public class QuizSessionService {
 
         session.getSessionAnswers().add(sessionAnswer);
         sessionRepository.save(session);
-
-        AnswerOption correctOption = question.getAnswerOptions().stream()
-                .filter(AnswerOption::isCorrect)
-                .findFirst().orElse(null);
 
         return QuestionResultResponse.builder()
                 .isCorrect(isCorrect)
